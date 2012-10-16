@@ -1,0 +1,6 @@
+[Allow neuca-agent running as quantum libvirt management permissions]
+Identity=unix-user:quantum
+Action=org.libvirt.unix.manage
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes

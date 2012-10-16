@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+
+# Copyright (c) 2012 Renaissance Computing Institute except where noted. All rights reserved.
+#
+# This software is distributed under the terms of the Eclipse Public License
+# Version 1.0 found in the file named LICENSE.Eclipse, which was shipped with
+# this distribution. Any use, reproduction or distribution of this software
+# constitutes the recipient's acceptance of the Eclipse license terms. This
+# notice and the full text of the license must be included with any distribution
+# of this software.
+#
+# Renaissance Computing Institute,
+# (A Joint Institute between the University of North Carolina at Chapel Hill,
+# North Carolina State University, and Duke University)
+# http://www.renci.org
+#
+# For questions, comments please contact software@renci.org
+#
+# Author: Victor J. Orlikowski (vjo@duke.edu)
+# (borrowing *liberally* from the OpenStack developers)
+
+"""Root wrapper for NEuca Quantum Plugin
+
+   Uses quantum.plugins.neuca.rootwrap containing filters for commands
+   that quantum agents are allowed to run as another user.
+
+   To switch to using this, you should:
+   * Set "--root_helper=sudo neuca-rootwrap" in the agents config file.
+   * Allow quantum to run quantum-rootwrap as root in quantum_sudoers:
+     quantum ALL = (root) NOPASSWD: /usr/bin/neuca-rootwrap
+     (all other commands can be removed from this file)
+
+   To make allowed commands node-specific, your packaging should only
+   install quantum/rootwrap/quantum-*-agent.py on compute nodes where
+   agents that need root privileges are run.
+"""
+
+import os
+import subprocess
+import sys
+
+
+RC_UNAUTHORIZED = 99
+RC_NOCOMMAND = 98
+
+if __name__ == '__main__':
+    # Split arguments, require at least a command
+    execname = sys.argv.pop(0)
+    if len(sys.argv) == 0:
+        print "%s: %s" % (execname, "No command specified")
+        sys.exit(RC_NOCOMMAND)
+
+    userargs = sys.argv[:]
+
+    # Add ../ to sys.path to allow running from branch
+    possible_topdir = os.path.normpath(os.path.join(os.path.abspath(execname),
+                                                    os.pardir, os.pardir))
+    if os.path.exists(os.path.join(possible_topdir, "quantum", "__init__.py")):
+        sys.path.insert(0, possible_topdir)
+
+    from quantum.rootwrap import wrapper
+
+    # Snatched from quantum rootwrap module, to serve our needs.
+    FILTERS_MODULES = ['quantum.plugins.neuca.rootwrap',
+                  ]
+
+    filters = []
+    for modulename in FILTERS_MODULES:
+        try:
+            __import__(modulename)
+            module = sys.modules[modulename]
+            filters = filters + module.filterlist
+        except ImportError:
+            pass
+
+    # Execute command if it matches any of the loaded filters
+    filtermatch = wrapper.match_filter(filters, userargs)
+    if filtermatch:
+        obj = subprocess.Popen(filtermatch.get_command(userargs),
+                               stdin=sys.stdin,
+                               stdout=sys.stdout,
+                               stderr=sys.stderr,
+                               env=filtermatch.get_environment(userargs))
+        obj.wait()
+        sys.exit(obj.returncode)
+
+    print "Unauthorized command: %s" % ' '.join(userargs)
+    sys.exit(RC_UNAUTHORIZED)

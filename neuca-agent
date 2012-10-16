@@ -1,0 +1,26 @@
+#!/usr/bin/env python
+#
+# Copyright (c) 2012 Renaissance Computing Institute except where noted. All rights reserved.
+#
+# This software is distributed under the terms of the Eclipse Public License
+# Version 1.0 found in the file named LICENSE.Eclipse, which was shipped with
+# this distribution. Any use, reproduction or distribution of this software
+# constitutes the recipient's acceptance of the Eclipse license terms. This
+# notice and the full text of the license must be included with any distribution
+# of this software.
+#
+# Renaissance Computing Institute,
+# (A Joint Institute between the University of North Carolina at Chapel Hill,
+# North Carolina State University, and Duke University)
+# http://www.renci.org
+#
+# For questions, comments please contact software@renci.org
+#
+# Author: Paul Ruth (pruth@renci.org)
+
+import os
+import sys
+sys.path.insert(0, os.getcwd())
+from quantum.plugins.neuca.agent.neuca_quantum_agent import main
+
+main()
