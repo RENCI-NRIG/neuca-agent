@@ -96,7 +96,7 @@ class NEUCAPort:
         retval = p.communicate()[0]
         if p.returncode == -(signal.SIGALRM):
             LOG.debug("timeout running command: " + " ".join(cmd))
-        return retval
+        return (p.returncode, retval)
 
 
     def destroy(self):
@@ -199,7 +199,7 @@ class NEUCABridge:
         retval = p.communicate()[0]
         if p.returncode == -(signal.SIGALRM):
             LOG.debug("timeout running command: " + " ".join(cmd))
-        return retval
+        return (p.returncode, retval)
 
     @classmethod
     def getMac(self, port_name):
@@ -307,8 +307,12 @@ class NEUCABridge:
         self.run_cmd(["vconfig", "add", self.switch_iface, str(self.vlan_tag)])
         
         #LOG.debug("ifconfig " + self.switch_iface + '.' +  str(self.vlan_tag) + ' up')
-        self.run_cmd(["ifconfig", self.switch_iface + '.' +  str(self.vlan_tag), 'up'])
-      
+        (exitcode, retval) = self.run_cmd(["ifconfig", self.switch_iface + '.' +  str(self.vlan_tag), 'up'])
+        if exitcode != 0:
+            LOG.error("Failed to bring up " + self.switch_iface + '.' +  str(self.vlan_tag) + \
+                      " ; Please ensure that " + self.switch_iface + \
+                      " is the correct interface name, and has been brought up.")
+ 
         #create the bridge in ovs
         ovs.OVS_Network.reset_bridge(self.br_name.strip('"'))
         
