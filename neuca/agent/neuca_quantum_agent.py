@@ -91,11 +91,11 @@ class NEUCAPort:
         if cmd == None:
             return 'No Command'
         
-        LOG.debug("running command: " + " ".join(cmd))
+        LOG.debug("Running command: " + " ".join(cmd))
         p = Popen(cmd, stdout=PIPE)
         retval = p.communicate()[0]
         if p.returncode == -(signal.SIGALRM):
-            LOG.debug("timeout running command: " + " ".join(cmd))
+            LOG.debug("Timeout running command: " + " ".join(cmd))
         return (p.returncode, retval)
 
 
@@ -112,7 +112,7 @@ class NEUCAPort:
 
                 dom = conn.lookupByName(self.vm_ID)
                 if dom == None:
-                    LOG.info('Failed to find dom ' + self.vm_ID  + ' the libvirt hypervisor')
+                    LOG.info('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
                     return
             except:
                 LOG.debug('libvirt failed to find ' + self.vm_ID )
@@ -144,7 +144,7 @@ class NEUCAPort:
 
                 dom = conn.lookupByName(self.vm_ID)
                 if dom == None:
-                    LOG.debug('Failed to find dom ' + self.vm_ID  + ' the libvirt hypervisor')
+                    LOG.debug('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
                     return
             except:
                 LOG.debug('libvirt failed to find ' + self.vm_ID )
@@ -194,11 +194,11 @@ class NEUCABridge:
             return 'No Command'
 
 
-        LOG.debug("running command: " + " ".join(cmd))
+        LOG.debug("Running command: " + " ".join(cmd))
         p = Popen(cmd, stdout=PIPE)
         retval = p.communicate()[0]
         if p.returncode == -(signal.SIGALRM):
-            LOG.debug("timeout running command: " + " ".join(cmd))
+            LOG.debug("Timeout running command: " + " ".join(cmd))
         return (p.returncode, retval)
 
     @classmethod
@@ -421,7 +421,7 @@ class NEUCAQuantumAgent(object):
                 ctxt.xpathFreeContext()
 
         except:
-            LOG.debug('Failed to find domians in libvirt')
+            LOG.debug('Failed to find domains in libvirt')
 
 
     @classmethod
@@ -556,7 +556,7 @@ class NEUCAQuantumAgent(object):
 
             for port_old in old_bridges[br_old].ports:
                 if not port_old in new_bridges[br_old].ports:
-                    LOG.info("Deleteing  port: " + port_old)
+                    LOG.info("Deleting  port: " + port_old)
                     old_bridges[br_old].ports[port_old].destroy()
                 else:
                     old_bridges[br_old].ports[port_old].update()

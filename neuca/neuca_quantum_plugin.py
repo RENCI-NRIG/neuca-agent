@@ -157,7 +157,7 @@ class NEUCAQuantumPlugin(QuantumPluginBase):
             else:
                 max_ingress_burst = 0
         else:
-            LOG.debug("PRUTH: not enough properites or not neuca: len(properties) = %d, %s" % (len(properties),net_name))
+            LOG.debug("PRUTH: not enough properties or not neuca: len(properties) = %d, %s" % (len(properties),net_name))
         
             network_type = 'management'
             switch_name = 'management'
@@ -236,8 +236,8 @@ class NEUCAQuantumPlugin(QuantumPluginBase):
                                 op_status=OperationalStatus.DOWN)
         
 
-        LOG.debug("PRUTH neuca_tenant_id: %s, net_id: %s, interface_id: %s" % (neuca_tenant_id, net_id, port.interface_id))
-        LOG.debug("PRUTH kwargs:%s" % (str(kwargs)))
+        LOG.debug("PRUTH: neuca_tenant_id: %s, net_id: %s, interface_id: %s" % (neuca_tenant_id, net_id, port.interface_id))
+        LOG.debug("PRUTH: kwargs:%s" % (str(kwargs)))
         
         neuca_db.add_port_properties(port.uuid,None,None)
 
