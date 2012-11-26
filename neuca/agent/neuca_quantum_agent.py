@@ -128,8 +128,8 @@ class NEUCAPort:
             except:
                 LOG.debug('libvirt failed to remove iface from ' + self.vm_ID )
 
-
         ovs.OVS_Network.delete_port(self.bridge.getName(), self.vif_iface)      
+
 
     def create(self):
         LOG.info("Creating Port: " + str(self))
@@ -160,9 +160,9 @@ class NEUCAPort:
             except:
                 LOG.error('libvirt failed to add iface to ' + self.vm_ID )
 
-        ovs.OVS_Network.add_port(self.bridge.getName(), self.vif_iface)
+            ovs.OVS_Network.add_port(self.bridge.getName(), self.vif_iface)
         
-        self.update()
+            self.update()
 
 
     def update(self):
@@ -465,19 +465,22 @@ class NEUCAQuantumAgent(object):
                 #curr_port_vm_internal_iface = None 
                 
 
-                #try to classify ports: for now "ethX.Y" is vlan, "tapX" is vif, everything else is unknown                             
+                #try to classify ports: for now "tapX" is vif, vlans are found in /proc/net/vlan,
+                #everything else is unknown 
                 if re.match( r'^tap[0-9a-fA-f\-]*$', curr_port_name, re.I): 
                     #We have a vif                                                                               
                     curr_br_ports.append({ 'name':curr_port_name, 'iface':curr_port_iface, 'mac':curr_port_mac, 
                                            'ID':curr_port_ID, 'curr_port_vm_ID':curr_port_vm_ID }) 
-                elif re.match( r'^eth[0-9]+\.[0-9]+$', curr_port_name, re.I): 
-                    #We have a vlan interface 
-                    curr_br_vlan = curr_port_name.split('.')[1].strip('"')
-                    curr_br_vlan_iface = curr_port_name.split('.')[0].strip('"')
-                    curr_br_switch_name = '' #TODO: should be reverse conf file lookup
                 else:
-                    #We don't know what we have
-                    pass
+                    vlan_ifaces = [(f) for f in os.listdir('/proc/net/vlan')]
+                    if curr_port_name in vlan_ifaces:
+                        #We have a vlan interface 
+                        curr_br_vlan = curr_port_name.split('.')[1].strip('"')
+                        curr_br_vlan_iface = curr_port_name.split('.')[0].strip('"')
+                        curr_br_switch_name = '' #TODO: should be reverse conf file lookup
+                    else:
+                        #We don't know what we have
+                        pass
 
         if not isFirst:
             curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
