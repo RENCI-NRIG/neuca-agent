@@ -509,26 +509,30 @@ class NEUCAQuantumAgent(object):
         except:
             all_nets = []
 
-
+    
         for net in all_nets:
-            if net.tenant_id == config.get("NEUCA", 'neuca_tenant_id'):
-                curr_br_name_long = net.name
-                curr_br_name = 'br-'+ config.get("NETWORKS", net.switch_name) +"-"+str(net.vlan_tag)
-                curr_br_switch_name = net.switch_name
-                curr_br_vlan = str(net.vlan_tag)
-                curr_br_vlan_iface = config.get("NETWORKS", net.switch_name) # + "." + str(net.vlan_tag)
-                curr_br_ports = []
-                curr_br_rate = net.max_ingress_rate
-                curr_br_burst = net.max_ingress_burst
-
-
-                curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
-                for p in all_join.filter_by(name=curr_br_name_long).all():   #where net name = curr_br_switch_name
-                    port_name = 'tap' + p.ports_uuid[0:11]
-                    curr_br.add_port(NEUCAPort(port_name, port_name, p.port_properties_mac_addr, curr_br, p.port_properties_port_id, p.port_properties_vm_id))
-
-                rtn_bridges[curr_br_name] = curr_br
-
+            try:
+                if net.tenant_id == config.get("NEUCA", 'neuca_tenant_id'):
+                    curr_br_name_long = net.name
+                    curr_br_name = 'br-'+ config.get("NETWORKS", net.switch_name) +"-"+str(net.vlan_tag)
+                    curr_br_switch_name = net.switch_name
+                    curr_br_vlan = str(net.vlan_tag)
+                    curr_br_vlan_iface = config.get("NETWORKS", net.switch_name) # + "." + str(net.vlan_tag)
+                    curr_br_ports = []
+                    curr_br_rate = net.max_ingress_rate
+                    curr_br_burst = net.max_ingress_burst
+                    
+                    
+                    curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
+                    for p in all_join.filter_by(name=curr_br_name_long).all():   #where net name = curr_br_switch_name
+                        port_name = 'tap' + p.ports_uuid[0:11]
+                        curr_br.add_port(NEUCAPort(port_name, port_name, p.port_properties_mac_addr, curr_br, p.port_properties_port_id, p.port_properties_vm_id))
+                        
+                        rtn_bridges[curr_br_name] = curr_br
+            except:
+                LOG.debug('Skipping unknown network ' + net.switch_name)
+                pass    
+            
         return rtn_bridges
 
     def print_bridges(self, bridges):
