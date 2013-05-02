@@ -100,7 +100,7 @@ class NEUCAPort:
 
 
     def destroy(self):
-        LOG.info("Destroying port: " + self.port_name)
+        LOG.info("Destroying port: " + self.port_name + ", vif_iface: " + self.vif_iface  + ", vm_ID: " + str(self.vm_ID))
 
         #TODO: Should use libvirt api
         if not self.vm_ID == None:
@@ -108,26 +108,25 @@ class NEUCAPort:
                 conn = libvirt.open("qemu:///system")
                 if conn == None:
                     LOG.info('Failed to open connection to the libvirt hypervisor')
-                    return
-
-                dom = conn.lookupByName(self.vm_ID)
-                if dom == None:
-                    LOG.info('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
-                    return
+                else:
+                    dom = conn.lookupByName(self.vm_ID)
+                    if dom == None:
+                        LOG.info('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
+                    
+                    dom.detachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/>  <target dev='"+ self.vif_iface +"'/> </interface>")
             except:
                 LOG.debug('libvirt failed to find ' + self.vm_ID )
-                return
+                #return
 
-            try:
-                LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface) 
-                dom.detachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/>  <target dev='"+ self.vif_iface +"'/> </interface>")
-                self.run_cmd(["ifconfig", self.vif_iface, "down" ])
-                self.run_cmd(["tunctl", "-d", self.vif_iface ])
+        try:
+           LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface) 
+           self.run_cmd(["ifconfig", self.vif_iface, "down" ])
+           self.run_cmd(["tunctl", "-d", self.vif_iface ])
 
 
-            except:
-                LOG.debug('libvirt failed to remove iface from ' + self.vm_ID )
-
+        except:
+           LOG.debug('libvirt failed to remove iface ' + self.port_name + ' from ' + self.vm_ID )
+        
         ovs.OVS_Network.delete_port(self.bridge.getName(), self.vif_iface)      
 
 
@@ -496,7 +495,7 @@ class NEUCAQuantumAgent(object):
 
 
     @classmethod
-    def __read_bridge_info_from_db(self, db):
+    def __read_bridge_info_from_db_old(self, db):
         rtn_bridges = {}
         
         net_join = db.join(db.networks, db.network_properties, db.network_properties.network_id==db.networks.uuid)
@@ -534,6 +533,79 @@ class NEUCAQuantumAgent(object):
                 pass    
             
         return rtn_bridges
+
+    @classmethod
+    def __read_bridge_info_from_db(self, db):
+
+
+        try:
+           conn = libvirt.open("qemu:///system")
+           ids = conn.listDomainsID()
+           if conn == None:
+               LOG.error('Failed to open connection to the libvirt hypervisor')
+               return
+        except:
+           LOG.debug('libvirt open libvirt connection ' )
+           return
+        
+        instances=[]
+        for id in ids:
+           try:
+              dom = conn.lookupByID(id)
+              LOG.debug(str(dom.name()))
+              instances = instances + [ dom.name() ]
+           except:
+              LOG.debug('libvirt failed to find vm ' + id )
+
+
+        #instances=['instance-00000f1c','instance-00000f1d']
+   
+        LOG.debug( 'instances: ' + str(instances) )
+
+        rtn_bridges = {}
+
+        net_join = db.join(db.networks, db.network_properties, db.network_properties.network_id==db.networks.uuid)
+        port_join = db.with_labels(db.join(db.ports, db.port_properties, db.port_properties.port_id==db.ports.uuid))
+        all_join = db.join(port_join, net_join, port_join.ports_network_id==net_join.uuid)
+
+        #ports_interface_id='instance-00000f1b.fe:16:3e:00:68:eb'
+        all_ports=[]
+        for inst in instances:
+            all_ports += all_join.filter_by(port_properties_vm_id=inst).all()
+        LOG.debug(str(all_ports))
+ 
+        try: 
+            neuca_tenant_id=config.get("NEUCA", 'neuca_tenant_id')
+        except:
+            LOG.debug('Unspecified NEuca Tenant ID, check neuca quantum config file')
+
+        for port in all_ports:
+            try:
+                if port.tenant_id == neuca_tenant_id:
+                     curr_br_name = 'br-'+ config.get("NETWORKS", port.switch_name) +"-"+str(port.vlan_tag)
+                     if curr_br_name in rtn_bridges:
+                         curr_br = rtn_bridges[curr_br_name]       
+                     else:
+                         curr_br_name_long = port.name
+                         curr_br_name = 'br-'+ config.get("NETWORKS", port.switch_name) +"-"+str(port.vlan_tag)
+                         curr_br_switch_name = port.switch_name
+                         curr_br_vlan = str(port.vlan_tag)
+                         curr_br_vlan_iface = config.get("NETWORKS", port.switch_name) # + "." + str(net.vlan_tag)
+                         curr_br_ports = []
+                         curr_br_rate = port.max_ingress_rate
+                         curr_br_burst = port.max_ingress_burst
+
+                         curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
+                         rtn_bridges[curr_br_name] = curr_br
+	                 
+                port_name = 'tap' + port.ports_uuid[0:11]
+                curr_br.add_port(NEUCAPort(port_name, port_name, port.port_properties_mac_addr, curr_br, port.port_properties_port_id, port.port_properties_vm_id))
+            except:
+                LOG.debug('Error adding port ' + str(port.ports_interface_id))
+
+        return rtn_bridges
+
+
 
     def print_bridges(self, bridges):
         LOG.info('######################################')
@@ -598,14 +670,21 @@ class NEUCAQuantumAgent(object):
                 #Apply changes
                 self.update_bridges(old_bridges, new_bridges)
 
-                self.db.commit()
-                time.sleep(REFRESH_INTERVAL)
             except KeyboardInterrupt:
                 LOG.error("Exception: KeyboardInterrupt")
                 sys.exit(0)
             except Exception as e:
                 LOG.error("Exception in daemon_loop: " + str(type(e)))
                 LOG.error(str(e))
+
+            try:
+               self.db.commit()
+               time.sleep(REFRESH_INTERVAL)
+            except Exception as e:
+                LOG.error("Exception in daemon_loop (db commit): " + str(type(e)))
+                LOG.error(str(e))
+
+
 
 import time
 from daemon import runner
