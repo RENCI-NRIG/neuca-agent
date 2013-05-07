@@ -102,30 +102,32 @@ class NEUCAPort:
     def destroy(self):
         LOG.info("Destroying port: " + self.port_name + ", vif_iface: " + self.vif_iface  + ", vm_ID: " + str(self.vm_ID))
 
-        #TODO: Should use libvirt api
         if not self.vm_ID == None:
             try:
                 conn = libvirt.open("qemu:///system")
                 if conn == None:
                     LOG.info('Failed to open connection to the libvirt hypervisor')
-                else:
-                    dom = conn.lookupByName(self.vm_ID)
-                    if dom == None:
-                        LOG.info('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
-                    
-                    dom.detachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/>  <target dev='"+ self.vif_iface +"'/> </interface>")
+                    return
+                
+                dom = conn.lookupByName(self.vm_ID)
+                if dom == None:
+                    LOG.info('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
+                    return
+
             except:
                 LOG.debug('libvirt failed to find ' + self.vm_ID )
-                #return
+                return
 
-        try:
-           LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface) 
-           self.run_cmd(["ifconfig", self.vif_iface, "down" ])
-           self.run_cmd(["tunctl", "-d", self.vif_iface ])
+            try:
+                LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface) 
+                dom.detachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/>  <target dev='"+ self.vif_iface +"'/> </interface>")
+
+                self.run_cmd(["ifconfig", self.vif_iface, "down" ])
+                self.run_cmd(["tunctl", "-d", self.vif_iface ])
 
 
-        except:
-           LOG.debug('libvirt failed to remove iface ' + self.port_name + ' from ' + self.vm_ID )
+            except:
+                LOG.debug('libvirt failed to remove iface ' + self.port_name + ' from ' + self.vm_ID )
         
         ovs.OVS_Network.delete_port(self.bridge.getName(), self.vif_iface)      
 
