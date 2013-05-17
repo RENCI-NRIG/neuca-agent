@@ -681,11 +681,10 @@ class NEUCAQuantumAgent(object):
 
             try:
                self.db.commit()
-               time.sleep(REFRESH_INTERVAL)
             except Exception as e:
-                LOG.error("Exception in daemon_loop (db commit): " + str(type(e)))
-                LOG.error(str(e))
-
+               self.db.rollback()
+            
+            time.sleep(REFRESH_INTERVAL)
 
 
 import time
