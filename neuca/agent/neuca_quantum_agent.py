@@ -35,7 +35,7 @@ import inspect
 import libxml2
 import libvirt
 import os
-
+import traceback
 
 from quantum.plugins.neuca.agent import ovs_network as ovs  
 
@@ -102,6 +102,7 @@ class NEUCAPort:
     def destroy(self):
         LOG.info("Destroying port: " + self.port_name + ", vif_iface: " + self.vif_iface  + ", vm_ID: " + str(self.vm_ID))
 
+        vm_exists = True
         if not self.vm_ID == None:
             try:
                 conn = libvirt.open("qemu:///system")
@@ -115,20 +116,28 @@ class NEUCAPort:
                     return
 
             except:
+                vm_exists = False
                 LOG.debug('libvirt failed to find ' + self.vm_ID )
-                return
-
+             
+            
             try:
                 LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface) 
-                dom.detachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/>  <target dev='"+ self.vif_iface +"'/> </interface>")
-
-                self.run_cmd(["ifconfig", self.vif_iface, "down" ])
-                self.run_cmd(["tunctl", "-d", self.vif_iface ])
-
-
-            except:
-                LOG.debug('libvirt failed to remove iface ' + self.port_name + ' from ' + self.vm_ID )
+                if vm_exists:
+                   dom.detachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/>  <target dev='"+ self.vif_iface +"'/> </interface>")
+	    except:
+                LOG.debug('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
+ 
+        try:
+           self.run_cmd(["ifconfig", self.vif_iface, "down" ])
+        except:
+           LOG.debug('libvirt failed to ifconfig down the iface ' + self.port_name + ' from ' + self.vm_ID )
         
+        try:
+           self.run_cmd(["tunctl", "-d", self.vif_iface ])
+        except:
+           LOG.debug('libvirt failed to remove the iface (tunctl -d) ' + self.port_name + ' from ' + self.vm_ID )
+
+
         ovs.OVS_Network.delete_port(self.bridge.getName(), self.vif_iface)      
 
 
@@ -241,8 +250,8 @@ class NEUCABridge:
 
                 doc.freeDoc()
                 ctxt.xpathFreeContext()
-        except:
-            LOG.error("getMac_libvirt error")
+        except Exception as e:
+            LOG.error("getMac_libvirt error: tap_name=" + str(tap_name) + ", " + str(e) + "\n" + str(traceback.format_exc()))
 
         if not found:
             rtn_val = "not found"
@@ -677,7 +686,7 @@ class NEUCAQuantumAgent(object):
                 sys.exit(0)
             except Exception as e:
                 LOG.error("Exception in daemon_loop: " + str(type(e)))
-                LOG.error(str(e))
+                LOG.error(str(type(e)) + " : " + str(e) + "\n" + str(traceback.format_exc()))
 
             try:
                self.db.commit()
