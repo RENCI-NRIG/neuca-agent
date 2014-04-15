@@ -166,7 +166,7 @@ class NEUCAPort:
 
             try:
                 LOG.info("Creating interface:" + self.vif_mac + ", "+ self.vif_iface )
-                dom.attachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/> <script path=''/> <target dev='"+ self.vif_iface +"' />  <model type='virtio' />  </interface>")
+                dom.attachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/> <script path=''/> <target dev='"+ self.vif_iface +"' />  <model type='virtio' /> <driver name='qemu' txmode='timer' ioeventfd='on'/>  </interface>")
             except:
                 LOG.error('libvirt failed to add iface to ' + self.vm_ID )
 

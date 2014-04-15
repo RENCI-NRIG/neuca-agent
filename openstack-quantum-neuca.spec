@@ -1,6 +1,6 @@
 Name:		openstack-quantum-neuca
 Version:	0.1
-Release:	exogeni5%{?dist}
+Release:	exogeni6%{?dist}
 Summary:	Quantum NEuca plugin
 
 Group:		Applications/System
@@ -101,6 +101,9 @@ fi
 %dir %attr(0755, quantum, quantum) %{_localstatedir}/run/neuca
 
 %changelog
+* Tue Apr 15 2013 Victor J. Orlikowski <vjo@cs.duke.edu> - 0.1-exogeni6
+- QEMU virtio UDP optimization
+
 * Fri Jul 5 2013 Victor J. Orlikowski <vjo@cs.duke.edu> - 0.1-exogeni5
 - Bug fix for leaking tap devices
 
