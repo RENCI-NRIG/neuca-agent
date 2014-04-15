@@ -101,7 +101,7 @@ fi
 %dir %attr(0755, quantum, quantum) %{_localstatedir}/run/neuca
 
 %changelog
-* Tue Apr 15 2013 Victor J. Orlikowski <vjo@cs.duke.edu> - 0.1-exogeni6
+* Tue Apr 15 2014 Victor J. Orlikowski <vjo@cs.duke.edu> - 0.1-exogeni6
 - QEMU virtio UDP optimization
 
 * Fri Jul 5 2013 Victor J. Orlikowski <vjo@cs.duke.edu> - 0.1-exogeni5
