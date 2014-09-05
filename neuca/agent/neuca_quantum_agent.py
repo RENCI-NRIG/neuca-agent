@@ -138,7 +138,8 @@ class NEUCAPort:
            LOG.debug('libvirt failed to remove the iface (tunctl -d) ' + self.port_name + ' from ' + self.vm_ID )
 
 
-        ovs.OVS_Network.delete_port(self.bridge.getName(), self.vif_iface)      
+        ovs.OVS_Network.delete_port(self.bridge.getName(), self.vif_iface) 
+        conn.close()
 
 
     def create(self):
@@ -171,7 +172,7 @@ class NEUCAPort:
                 LOG.error('libvirt failed to add iface to ' + self.vm_ID )
 
             ovs.OVS_Network.add_port(self.bridge.getName(), self.vif_iface)
-        
+            conn.close() 
             self.update()
 
 
@@ -256,6 +257,7 @@ class NEUCABridge:
         if not found:
             rtn_val = "not found"
 
+        conn.close()
         return rtn_val
 
     def getName(self):
@@ -433,6 +435,7 @@ class NEUCAQuantumAgent(object):
         except:
             LOG.debug('Failed to find domains in libvirt')
 
+        conn.close()
 
     @classmethod
     def __read_bridge_info_from_ovs(self):
@@ -614,6 +617,7 @@ class NEUCAQuantumAgent(object):
             except:
                 LOG.debug('Error adding port ' + str(port.ports_interface_id))
 
+        conn.close()
         return rtn_bridges
 
 
