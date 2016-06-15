@@ -35,7 +35,6 @@ import inspect
 import libxml2
 import libvirt
 import os
-import traceback
 
 from quantum.plugins.neuca.agent import ovs_network as ovs  
 
@@ -125,7 +124,7 @@ class NEUCAPort:
                 if vm_exists:
                    dom.detachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/>  </interface>")
 	    except:
-                LOG.debug('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
+                LOG.exception('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
  
         conn.close()
 
@@ -150,11 +149,11 @@ class NEUCAPort:
                 return
 
             try:
-                LOG.info("Creating interface:" + self.vif_mac + ", "+ self.vif_iface )
-                dom.attachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/>  </interface>")
+                LOG.info("Creating interface: " + self.vif_mac + ", "+ self.vif_iface )
+                dom.attachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <target dev='" + self.vif_iface + "'/> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>")
                 self.run_cmd(["ifconfig", self.vif_iface, "up" ])
             except:
-                LOG.error('libvirt failed to add iface to ' + self.vm_ID )
+                LOG.exception('libvirt failed to add iface to ' + self.vm_ID )
 
             conn.close() 
             self.update()
@@ -235,8 +234,8 @@ class NEUCABridge:
 
                 doc.freeDoc()
                 ctxt.xpathFreeContext()
-        except Exception as e:
-            LOG.error("getMac_libvirt error: vif_name=" + str(vif_name) + ", " + str(e) + "\n" + str(traceback.format_exc()))
+        except:
+            LOG.exception("getMac_libvirt error for vif_name = " + str(vif_name))
 
         if not found:
             rtn_val = "not found"
@@ -522,7 +521,7 @@ class NEUCAQuantumAgent(object):
                     
                     curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
                     for p in all_join.filter_by(name=curr_br_name_long).all():   #where net name = curr_br_switch_name
-                        port_name = 'vif-' + p.ports_uuid
+                        port_name = 'vif-' + p.ports_uuid[-11:]
                         curr_br.add_port(NEUCAPort(port_name, port_name, p.port_properties_mac_addr, curr_br, p.port_properties_port_id, p.port_properties_vm_id))
                         
                         rtn_bridges[curr_br_name] = curr_br
@@ -596,7 +595,7 @@ class NEUCAQuantumAgent(object):
                          curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
                          rtn_bridges[curr_br_name] = curr_br
 	                 
-                port_name = 'vif-' + port.ports_uuid
+                port_name = 'vif-' + port.ports_uuid[-11:]
                 curr_br.add_port(NEUCAPort(port_name, port_name, port.port_properties_mac_addr, curr_br, port.port_properties_port_id, port.port_properties_vm_id))
             except:
                 LOG.debug('Error adding port ' + str(port.ports_interface_id))
@@ -672,9 +671,8 @@ class NEUCAQuantumAgent(object):
             except KeyboardInterrupt:
                 LOG.error("Exception: KeyboardInterrupt")
                 sys.exit(0)
-            except Exception as e:
-                LOG.error("Exception in daemon_loop: " + str(type(e)))
-                LOG.error(str(type(e)) + " : " + str(e) + "\n" + str(traceback.format_exc()))
+            except:
+                LOG.exception("Exception in daemon_loop!")
 
             try:
                self.db.commit()
