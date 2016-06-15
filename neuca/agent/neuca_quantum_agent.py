@@ -123,22 +123,10 @@ class NEUCAPort:
             try:
                 LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface) 
                 if vm_exists:
-                   dom.detachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/>  <target dev='"+ self.vif_iface +"'/> </interface>")
+                   dom.detachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type="openvswitch"> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/>  </interface>")
 	    except:
                 LOG.debug('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
  
-        try:
-           self.run_cmd(["ifconfig", self.vif_iface, "down" ])
-        except:
-           LOG.debug('libvirt failed to ifconfig down the iface ' + self.port_name + ' from ' + self.vm_ID )
-        
-        try:
-           self.run_cmd(["tunctl", "-d", self.vif_iface ])
-        except:
-           LOG.debug('libvirt failed to remove the iface (tunctl -d) ' + self.port_name + ' from ' + self.vm_ID )
-
-
-        ovs.OVS_Network.delete_port(self.bridge.getName(), self.vif_iface) 
         conn.close()
 
 
@@ -161,17 +149,13 @@ class NEUCAPort:
                 LOG.debug('libvirt failed to find ' + self.vm_ID )
                 return
 
-            #create tap "tunctl -t self.vif_iface"
-            self.run_cmd(["tunctl", "-t", self.vif_iface ])
-            self.run_cmd(["ifconfig", self.vif_iface, "up" ])
-
             try:
                 LOG.info("Creating interface:" + self.vif_mac + ", "+ self.vif_iface )
-                dom.attachDevice("<interface type='ethernet'> <mac address='" + self.vif_mac + "'/> <script path=''/> <target dev='"+ self.vif_iface +"' />  <model type='virtio' /> <driver name='qemu' txmode='timer' ioeventfd='on'/>  </interface>")
+                dom.attachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type="openvswitch"> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/>  </interface>")
+                self.run_cmd(["ifconfig", self.vif_iface, "up" ])
             except:
                 LOG.error('libvirt failed to add iface to ' + self.vm_ID )
 
-            ovs.OVS_Network.add_port(self.bridge.getName(), self.vif_iface)
             conn.close() 
             self.update()
 
@@ -226,7 +210,7 @@ class NEUCABridge:
         return mac
 
     @classmethod
-    def getMac_libvirt(self, tap_name):
+    def getMac_libvirt(self, vif_name):
         found = False
 
         conn = libvirt.open("qemu:///system")
@@ -244,7 +228,7 @@ class NEUCABridge:
                     name = node.xpathEval('target')[0].prop('dev')
                     mac = node.xpathEval('mac')[0].prop('address')
 
-                    if name == tap_name:
+                    if name == vif_name:
                         rtn_val = str(mac)
                         found = True
                         break
@@ -252,7 +236,7 @@ class NEUCABridge:
                 doc.freeDoc()
                 ctxt.xpathFreeContext()
         except Exception as e:
-            LOG.error("getMac_libvirt error: tap_name=" + str(tap_name) + ", " + str(e) + "\n" + str(traceback.format_exc()))
+            LOG.error("getMac_libvirt error: vif_name=" + str(vif_name) + ", " + str(e) + "\n" + str(traceback.format_exc()))
 
         if not found:
             rtn_val = "not found"
@@ -482,9 +466,9 @@ class NEUCAQuantumAgent(object):
                 #curr_port_vm_internal_iface = None 
                 
 
-                #try to classify ports: for now "tapX" is vif, vlans are found in /proc/net/vlan,
+                #try to classify ports: for now "vif-X" is vif, vlans are found in /proc/net/vlan,
                 #everything else is unknown 
-                if re.match( r'^tap[0-9a-fA-f\-]*$', curr_port_name, re.I): 
+                if re.match( r'^vif-[0-9a-fA-f\-]*$', curr_port_name, re.I):
                     #We have a vif                                                                               
                     curr_br_ports.append({ 'name':curr_port_name, 'iface':curr_port_iface, 'mac':curr_port_mac, 
                                            'ID':curr_port_ID, 'curr_port_vm_ID':curr_port_vm_ID }) 
@@ -538,7 +522,7 @@ class NEUCAQuantumAgent(object):
                     
                     curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
                     for p in all_join.filter_by(name=curr_br_name_long).all():   #where net name = curr_br_switch_name
-                        port_name = 'tap' + p.ports_uuid[0:11]
+                        port_name = 'vif-' + p.ports_uuid
                         curr_br.add_port(NEUCAPort(port_name, port_name, p.port_properties_mac_addr, curr_br, p.port_properties_port_id, p.port_properties_vm_id))
                         
                         rtn_bridges[curr_br_name] = curr_br
@@ -612,7 +596,7 @@ class NEUCAQuantumAgent(object):
                          curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
                          rtn_bridges[curr_br_name] = curr_br
 	                 
-                port_name = 'tap' + port.ports_uuid[0:11]
+                port_name = 'vif-' + port.ports_uuid
                 curr_br.add_port(NEUCAPort(port_name, port_name, port.port_properties_mac_addr, curr_br, port.port_properties_port_id, port.port_properties_vm_id))
             except:
                 LOG.debug('Error adding port ' + str(port.ports_interface_id))
@@ -641,13 +625,13 @@ class NEUCAQuantumAgent(object):
                 continue
 
             if not br_old in new_bridges:
-                LOG.info("Deleting Old Bridge:  " + br_old)
+                LOG.info("Deleting old bridge:  " + br_old)
                 old_bridges[br_old].destroy()
                 continue
 
             for port_old in old_bridges[br_old].ports:
                 if not port_old in new_bridges[br_old].ports:
-                    LOG.info("Deleting  port: " + port_old)
+                    LOG.info("Deleting port: " + port_old)
                     old_bridges[br_old].ports[port_old].destroy()
                 else:
                     old_bridges[br_old].ports[port_old].update()
@@ -658,15 +642,15 @@ class NEUCAQuantumAgent(object):
                 continue
 
             if not br_new in old_bridges:
-                LOG.info("Adding new bridge:  " + br_new)
+                LOG.info("Adding new bridge: " + br_new)
                 new_bridges[br_new].create()
                 for port_new in new_bridges[br_new].ports:
-                    LOG.info("Adding  port to new bridge: " + port_new)
+                    LOG.info("Adding port to new bridge: " + port_new)
                     new_bridges[br_new].ports[port_new].create()
             else:
                 for port_new in new_bridges[br_new].ports:
                     if not port_new in old_bridges[br_new].ports:
-                        LOG.info("Adding  port to old bridge: " + port_new)
+                        LOG.info("Adding port to old bridge: " + port_new)
                         new_bridges[br_new].ports[port_new].create()
                         
 

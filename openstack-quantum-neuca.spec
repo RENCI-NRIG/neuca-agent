@@ -18,7 +18,6 @@ Requires(preun):  chkconfig
 Requires(preun):  initscripts
 
 Requires:	openstack-quantum >= 2012.1-6
-Requires:	tunctl
 Requires:	vconfig
 Requires:	net-tools
 Requires:	bridge-utils
