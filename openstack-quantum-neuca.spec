@@ -1,6 +1,6 @@
 Name:		openstack-quantum-neuca
 Version:	0.1
-Release:	exogeni8%{?dist}
+Release:	exogeni9%{?dist}
 Summary:	Quantum NEuca plugin
 
 Group:		Applications/System

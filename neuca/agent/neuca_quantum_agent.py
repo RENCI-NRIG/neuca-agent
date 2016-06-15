@@ -122,7 +122,7 @@ class NEUCAPort:
             try:
                 LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface) 
                 if vm_exists:
-                   dom.detachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/>  </interface>")
+                   dom.detachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/>  </interface>")
 	    except:
                 LOG.exception('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
  
