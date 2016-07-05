@@ -536,23 +536,29 @@ class NEUCAQuantumAgent(object):
     @classmethod
     def __read_bridge_info_from_db(self, db):
 
+        conn = None
+        instances = []
 
+        # First, get the list of defined, but not running, instances.
         try:
            conn = libvirt.open("qemu:///system")
-           ids = conn.listDomainsID()
-           if conn == None:
+           instances = conn.listDefinedDomains()
+           if not conn:
                LOG.error('Failed to open connection to the libvirt hypervisor')
                return
         except:
-           LOG.debug('libvirt open libvirt connection ' )
+           LOG.debug('Unable to open libvirt connection.')
            return
         
-        instances=[]
+        # Now, get the list of running instances, and append.
+        ids = conn.listDomainsID()
         for id in ids:
            try:
               dom = conn.lookupByID(id)
-              LOG.debug(str(dom.name()))
-              instances = instances + [ dom.name() ]
+              if dom:
+                  new_instance_name = dom.name()
+                  LOG.debug(new_instance_name)
+                  instances.append(new_instance_name)
            except:
               LOG.debug('libvirt failed to find vm ' + id )
 
@@ -602,9 +608,9 @@ class NEUCAQuantumAgent(object):
             except:
                 LOG.debug('Error adding port ' + str(port.ports_interface_id))
 
-        conn.close()
+        if conn:
+            conn.close()
         return rtn_bridges
-
 
 
     def print_bridges(self, bridges):
