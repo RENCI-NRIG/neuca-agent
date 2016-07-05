@@ -67,7 +67,6 @@ class NEUCAPort:
         self.bridge = bridge
         self.ID = ID
         self.vm_ID = vm_ID
-        
 
     def __str__(self):
         if self.bridge:
@@ -82,12 +81,11 @@ class NEUCAPort:
                ", ID: "         + str(self.ID) + \
                ", vm_ID: "         + str(self.vm_ID) 
 
-
     @classmethod
     def run_cmd(self, args):
         cmd = shlex.split(self.root_helper) + args
 
-        if cmd == None:
+        if not cmd:
             return 'No Command'
         
         LOG.debug("Running command: " + " ".join(cmd))
@@ -97,13 +95,12 @@ class NEUCAPort:
             LOG.debug("Timeout running command: " + " ".join(cmd))
         return (p.returncode, retval)
 
-
     def destroy(self):
         LOG.info("Destroying port: " + self.port_name + ", vif_iface: " + self.vif_iface  + ", vm_ID: " + str(self.vm_ID))
 
         vm_exists = True
         conn = None
-        if not self.vm_ID == None:
+        if self.vm_ID:
             try:
                 conn = libvirt.open("qemu:///system")
                 if not conn:
@@ -130,20 +127,20 @@ class NEUCAPort:
             if conn:
                 conn.close()
 
-
     def create(self):
         LOG.info("Creating Port: " + str(self))
 
-        if not self.vm_ID == None:
+        if self.vm_ID:
+            conn = None
             try:
                 #add device to vm
                 conn = libvirt.open("qemu:///system")
-                if conn == None:
+                if not conn:
                     LOG.error('Failed to open connection to the libvirt hypervisor')
                     return
 
                 dom = conn.lookupByName(self.vm_ID)
-                if dom == None:
+                if not dom:
                     LOG.debug('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
                     return
             except:
@@ -157,12 +154,11 @@ class NEUCAPort:
             except:
                 LOG.exception('libvirt failed to add iface to ' + self.vm_ID )
 
-            conn.close() 
+            if conn:
+                conn.close() 
             self.update()
 
-
     def update(self):
-        
         if(self.bridge.ingress_policing_rate != None):
             LOG.info("set_port_ingress_rate: " + str(self.vif_iface) + " to " +  str(self.bridge.ingress_policing_rate))
             ovs.OVS_Network.set_port_ingress_rate(self.vif_iface, self.bridge.ingress_policing_rate)
@@ -171,13 +167,11 @@ class NEUCAPort:
             LOG.info("set_port_ingress_burst: " + str(self.vif_iface) + " to " + str(self.bridge.ingress_policing_burst))
             ovs.OVS_Network.set_port_ingress_burst(self.vif_iface, self.bridge.ingress_policing_burst)
 
-        
-
     def init_interfaces(self, interfaces):
         self.interfaces = interfaces
 
-class NEUCABridge:
 
+class NEUCABridge:
     @classmethod
     def set_root_helper(self, rh):
         self.root_helper = rh
@@ -186,7 +180,7 @@ class NEUCABridge:
     def run_cmd(self, args):
         cmd = shlex.split(self.root_helper) + args
 
-        if cmd == None:
+        if not cmd:
             return 'No Command'
 
 
@@ -242,7 +236,8 @@ class NEUCABridge:
         if not found:
             rtn_val = "not found"
 
-        conn.close()
+        if conn:
+            conn.close()
         return rtn_val
 
     def getName(self):
@@ -250,7 +245,6 @@ class NEUCABridge:
 
     def add_port(self, port):
         self.ports[port.port_name] = port
-
 
     def __init__(self, name, switch_name, vlan_tag, switch_iface, ingress_policing_rate, ingress_policing_burst):
         self.br_name = name
@@ -260,13 +254,11 @@ class NEUCABridge:
         self.vlan_iface = None 
         self.ingress_policing_rate = ingress_policing_rate
         self.ingress_policing_burst = ingress_policing_burst
-
     
         if self.vlan_tag != None and self.switch_iface != None:
             self.vlan_iface = self.switch_iface + "." + str(self.vlan_tag)
 
         self.ports = {}
-
 
     def __str__(self):
         return "br_name = "    + str(self.br_name) + \
@@ -294,8 +286,6 @@ class NEUCABridge:
         self.run_cmd(["ifconfig", self.vlan_iface, "down" ])
         self.run_cmd(["vconfig", "rem", self.vlan_iface])
 
-
-
     # Really creates the Bridge on the system
     def create(self):
         LOG.info("Create bridge: " + str(self.br_name))
@@ -320,7 +310,6 @@ class NEUCABridge:
         
 
 class NEUCAQuantumAgent(object):
-    
     def __init__(self, config_file):
         global config
         self.config_file = config_file
@@ -386,9 +375,6 @@ class NEUCAQuantumAgent(object):
         ovs.OVS_Network.set_root_helper(self.root_helper)
         NEUCABridge.set_root_helper(self.root_helper)
         NEUCAPort.set_root_helper(self.root_helper)
-   
-        
-        
 
     @classmethod
     def __read_interface_info_from_libvirt(self):
@@ -396,7 +382,7 @@ class NEUCAQuantumAgent(object):
         
         conn = libvirt.open("qemu:///system")
         
-        if conn == None:
+        if not conn:
             LOG.error('Failed to open connection to the libvirt hypervisor')
             return 
 
@@ -420,7 +406,8 @@ class NEUCAQuantumAgent(object):
         except:
             LOG.debug('Failed to find domains in libvirt')
 
-        conn.close()
+        if conn:
+            conn.close()
 
     @classmethod
     def __read_bridge_info_from_ovs(self):
@@ -437,7 +424,8 @@ class NEUCAQuantumAgent(object):
 
             if item.startswith('Bridge'):
                 if not isFirst:
-                    curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
+                    curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan,
+                                          curr_br_vlan_iface, curr_br_rate, curr_br_burst)
                     for p in curr_br_ports:
                         curr_br.add_port(NEUCAPort(p['name'],p['iface'],p['mac'],curr_br,p['ID'],p['curr_port_vm_ID']))
                     rtn_bridges[curr_br_name] = curr_br
@@ -452,7 +440,6 @@ class NEUCAQuantumAgent(object):
                 #TODO
                 curr_br_rate = None
                 curr_br_burst = None
-                
 
             if item.startswith('Port'):
                 curr_port_name = item.split(' ')[1].strip('"')
@@ -460,6 +447,7 @@ class NEUCAQuantumAgent(object):
                 #curr_port_mac = NEUCABridge.getMac(curr_port_iface).strip('"')
                 curr_port_mac = NEUCABridge.getMac_libvirt(curr_port_iface).strip('"')
                 curr_port_ID = '' #TODO: should be DB lookup that might fail if port was deleted
+
                 try:
                     curr_port_vm_ID = self.iface_to_vm_dict[curr_port_iface] 
                 except:
@@ -492,7 +480,6 @@ class NEUCAQuantumAgent(object):
 
         return rtn_bridges
 
-
     @classmethod
     def __read_bridge_info_from_db_old(self, db):
         rtn_bridges = {}
@@ -506,7 +493,6 @@ class NEUCAQuantumAgent(object):
             all_nets = net_join.all()
         except:
             all_nets = []
-
     
         for net in all_nets:
             try:
@@ -519,13 +505,13 @@ class NEUCAQuantumAgent(object):
                     curr_br_ports = []
                     curr_br_rate = net.max_ingress_rate
                     curr_br_burst = net.max_ingress_burst
-                    
-                    
-                    curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
+ 
+                    curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan,
+                                          curr_br_vlan_iface, curr_br_rate, curr_br_burst)
                     for p in all_join.filter_by(name=curr_br_name_long).all():   #where net name = curr_br_switch_name
                         port_name = 'vif-' + p.ports_uuid[-11:]
-                        curr_br.add_port(NEUCAPort(port_name, port_name, p.port_properties_mac_addr, curr_br, p.port_properties_port_id, p.port_properties_vm_id))
-                        
+                        curr_br.add_port(NEUCAPort(port_name, port_name, p.port_properties_mac_addr,xi
+                                                   curr_br, p.port_properties_port_id, p.port_properties_vm_id))
                         rtn_bridges[curr_br_name] = curr_br
             except:
                 LOG.debug('Skipping unknown network ' + net.switch_name)
@@ -600,18 +586,19 @@ class NEUCAQuantumAgent(object):
                          curr_br_rate = port.max_ingress_rate
                          curr_br_burst = port.max_ingress_burst
 
-                         curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan, curr_br_vlan_iface, curr_br_rate, curr_br_burst)
+                         curr_br = NEUCABridge(curr_br_name, curr_br_switch_name, curr_br_vlan,
+                                               curr_br_vlan_iface, curr_br_rate, curr_br_burst)
                          rtn_bridges[curr_br_name] = curr_br
 	                 
                 port_name = 'vif-' + port.ports_uuid[-11:]
-                curr_br.add_port(NEUCAPort(port_name, port_name, port.port_properties_mac_addr, curr_br, port.port_properties_port_id, port.port_properties_vm_id))
+                curr_br.add_port(NEUCAPort(port_name, port_name, port.port_properties_mac_addr,
+                                           curr_br, port.port_properties_port_id, port.port_properties_vm_id))
             except:
                 LOG.debug('Error adding port ' + str(port.ports_interface_id))
 
         if conn:
             conn.close()
         return rtn_bridges
-
 
     def print_bridges(self, bridges):
         LOG.info('######################################')
@@ -620,7 +607,6 @@ class NEUCAQuantumAgent(object):
             for port in br.ports.values():
                 LOG.info('\tPort: ' + str(port))
         LOG.info('######################################')
-                
 
     def update_bridges(self, old_bridges, new_bridges):
         br_int = config.get("NEUCA", 'integration-bridge')
@@ -631,17 +617,16 @@ class NEUCAQuantumAgent(object):
                 LOG.debug("Skipping: " + br_old)
                 continue
 
-            for port_old in old_bridges[br_old].ports:
-                if not port_old in new_bridges[br_old].ports:
-                    LOG.info("Deleting port: " + port_old)
-                    old_bridges[br_old].ports[port_old].destroy()
-                else:
-                    old_bridges[br_old].ports[port_old].update()
-
             if not br_old in new_bridges:
                 LOG.info("Deleting old bridge: " + br_old)
                 old_bridges[br_old].destroy()
-                continue
+            else:
+                for port_old in old_bridges[br_old].ports:
+                    if not port_old in new_bridges[br_old].ports:
+                        LOG.info("Deleting port: " + port_old)
+                        old_bridges[br_old].ports[port_old].destroy()
+                    else:
+                        old_bridges[br_old].ports[port_old].update()
 
         #add new bridges and ports
         for br_new in new_bridges.keys():
@@ -651,18 +636,13 @@ class NEUCAQuantumAgent(object):
             if not br_new in old_bridges:
                 LOG.info("Adding new bridge: " + br_new)
                 new_bridges[br_new].create()
-                for port_new in new_bridges[br_new].ports:
-                    LOG.info("Adding port to new bridge: " + port_new)
+
+            for port_new in new_bridges[br_new].ports:
+                if not port_new in old_bridges[br_new].ports:
+                    LOG.info("Adding port to old bridge: " + port_new)
                     new_bridges[br_new].ports[port_new].create()
-            else:
-                for port_new in new_bridges[br_new].ports:
-                    if not port_new in old_bridges[br_new].ports:
-                        LOG.info("Adding port to old bridge: " + port_new)
-                        new_bridges[br_new].ports[port_new].create()
-                        
 
     def daemon_loop(self):
-    
         while True:
             try:
                 #Get the current state of local bridges/ports/interfaces
@@ -706,8 +686,6 @@ class NEucaAgentd():
     def run(self):
         self.plugin = NEUCAQuantumAgent(self.config_file)
         self.plugin.daemon_loop()
-
-
 
 
 def main():
