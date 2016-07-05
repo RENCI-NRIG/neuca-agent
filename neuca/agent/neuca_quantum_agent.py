@@ -152,8 +152,9 @@ class NEUCAPort:
 
             LOG.info("Creating interface: " + self.vif_mac + ", "+ self.vif_iface )
             try:
-                dom.attachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
-                self.run_cmd(["ifconfig", self.vif_iface, "up" ])
+                if dom.isActive():
+                    dom.attachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
+                    self.run_cmd(["ifconfig", self.vif_iface, "up" ])
             except:
                 LOG.exception('libvirt failed to add iface to ' + self.vm_ID )
 
