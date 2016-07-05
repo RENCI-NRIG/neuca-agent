@@ -264,27 +264,28 @@ class NEUCABridge:
         return "br_name = "    + str(self.br_name) + \
                ", switch_name = "    + str(self.switch_name) + \
                ", vlan_tag = " + str(self.vlan_tag) + \
-               ", swtich_if = "  + str(self.switch_iface) + \
+               ", switch_if = "  + str(self.switch_iface) + \
                ", vlan_iface = "  + str(self.vlan_iface) + \
                ", ingress_policing_rate = " + str(self.ingress_policing_rate) + \
                ", ingress_policing_burst = "  + str(self.ingress_policing_burst)
 
     # Really destroys Bridge and all ports on system
     def destroy(self):
-        LOG.info("Destroying bridge: " + str(self.br_name) + ", vlan_iface: " + str(self.vlan_iface))
-        
+        LOG.info("Destroying bridge: " + str(self.br_name))
+ 
         #delete all ports
         for port in self.ports.values():
             port.destroy()
-            
-        #detach vlan_if 
-        ovs.OVS_Network.delete_port(self.br_name, self.vlan_iface)
-              
-        #delete vlan if                                
-        ovs.OVS_Network.delete_bridge(self.br_name)
+ 
+        #detach and delete vlan iface
+        if self.vlan_iface:
+            LOG.info("Deleting VLAN interface: " + str(self.vlan_iface))
+            ovs.OVS_Network.delete_port(self.br_name, self.vlan_iface)
+            self.run_cmd(["ifconfig", self.vlan_iface, "down"])
+            self.run_cmd(["vconfig", "rem", self.vlan_iface])
 
-        self.run_cmd(["ifconfig", self.vlan_iface, "down" ])
-        self.run_cmd(["vconfig", "rem", self.vlan_iface])
+        #delete bridge
+        ovs.OVS_Network.delete_bridge(self.br_name)
 
     # Really creates the Bridge on the system
     def create(self):
