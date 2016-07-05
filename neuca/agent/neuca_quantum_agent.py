@@ -115,12 +115,13 @@ class NEUCAPort:
             except:
                 vm_exists = False
                 LOG.debug('libvirt failed to find ' + self.vm_ID )
-             
-            
+
+            deviceXML = "<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>"
+
+            LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface)
             try:
-                LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface) 
                 if vm_exists:
-                    dom.detachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>")
+                    dom.detachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
             except:
                 LOG.exception('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
  
@@ -147,9 +148,11 @@ class NEUCAPort:
                 LOG.debug('libvirt failed to find ' + self.vm_ID )
                 return
 
+            deviceXML = "<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <target dev='" + self.vif_iface + "'/> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>"
+
+            LOG.info("Creating interface: " + self.vif_mac + ", "+ self.vif_iface )
             try:
-                LOG.info("Creating interface: " + self.vif_mac + ", "+ self.vif_iface )
-                dom.attachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <target dev='" + self.vif_iface + "'/> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>")
+                dom.attachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
                 self.run_cmd(["ifconfig", self.vif_iface, "up" ])
             except:
                 LOG.exception('libvirt failed to add iface to ' + self.vm_ID )
