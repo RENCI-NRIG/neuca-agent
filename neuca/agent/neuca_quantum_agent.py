@@ -102,10 +102,11 @@ class NEUCAPort:
         LOG.info("Destroying port: " + self.port_name + ", vif_iface: " + self.vif_iface  + ", vm_ID: " + str(self.vm_ID))
 
         vm_exists = True
+        conn = None
         if not self.vm_ID == None:
             try:
                 conn = libvirt.open("qemu:///system")
-                if conn == None:
+                if not conn:
                     LOG.info('Failed to open connection to the libvirt hypervisor')
                     return
                 
@@ -126,7 +127,8 @@ class NEUCAPort:
 	    except:
                 LOG.exception('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
  
-        conn.close()
+            if conn:
+                conn.close()
 
 
     def create(self):
