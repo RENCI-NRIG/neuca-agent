@@ -510,7 +510,7 @@ class NEUCAQuantumAgent(object):
                                           curr_br_vlan_iface, curr_br_rate, curr_br_burst)
                     for p in all_join.filter_by(name=curr_br_name_long).all():   #where net name = curr_br_switch_name
                         port_name = 'vif-' + p.ports_uuid[-11:]
-                        curr_br.add_port(NEUCAPort(port_name, port_name, p.port_properties_mac_addr,xi
+                        curr_br.add_port(NEUCAPort(port_name, port_name, p.port_properties_mac_addr,
                                                    curr_br, p.port_properties_port_id, p.port_properties_vm_id))
                         rtn_bridges[curr_br_name] = curr_br
             except:
