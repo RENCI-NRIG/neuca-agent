@@ -111,7 +111,7 @@ class NEUCAPort:
                     return
                 
                 dom = conn.lookupByName(self.vm_ID)
-                if dom == None:
+                if not dom:
                     LOG.info('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
                     return
 
@@ -123,7 +123,7 @@ class NEUCAPort:
             try:
                 LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface) 
                 if vm_exists:
-                    dom.detachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/>  </interface>")
+                    dom.detachDevice("<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>")
             except:
                 LOG.exception('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
  
@@ -625,17 +625,17 @@ class NEUCAQuantumAgent(object):
                 LOG.debug("Skipping: " + br_old)
                 continue
 
-            if not br_old in new_bridges:
-                LOG.info("Deleting old bridge:  " + br_old)
-                old_bridges[br_old].destroy()
-                continue
-
             for port_old in old_bridges[br_old].ports:
                 if not port_old in new_bridges[br_old].ports:
                     LOG.info("Deleting port: " + port_old)
                     old_bridges[br_old].ports[port_old].destroy()
                 else:
                     old_bridges[br_old].ports[port_old].update()
+
+            if not br_old in new_bridges:
+                LOG.info("Deleting old bridge: " + br_old)
+                old_bridges[br_old].destroy()
+                continue
 
         #add new bridges and ports
         for br_new in new_bridges.keys():
