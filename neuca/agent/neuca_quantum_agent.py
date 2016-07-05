@@ -623,7 +623,10 @@ class NEUCAQuantumAgent(object):
                 old_bridges[br_old].destroy()
             else:
                 for port_old in old_bridges[br_old].ports:
-                    if not port_old in new_bridges[br_old].ports:
+                    new_bridge_entry = new_bridges.get(br_old)
+                    if not new_bridge_entry:
+                        continue
+                    if not port_old in new_bridge_entry.ports:
                         LOG.info("Deleting port: " + port_old)
                         old_bridges[br_old].ports[port_old].destroy()
                     else:
@@ -639,7 +642,10 @@ class NEUCAQuantumAgent(object):
                 new_bridges[br_new].create()
 
             for port_new in new_bridges[br_new].ports:
-                if not port_new in old_bridges[br_new].ports:
+                old_bridge_entry = old_bridges.get(br_new)
+                if not old_bridge_entry:
+                    continue
+                if not port_new in old_bridge_entry.ports:
                     LOG.info("Adding port to old bridge: " + port_new)
                     new_bridges[br_new].ports[port_new].create()
 
