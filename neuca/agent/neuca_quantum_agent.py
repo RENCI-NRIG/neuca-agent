@@ -104,7 +104,7 @@ class NEUCAPort:
             try:
                 conn = libvirt.open("qemu:///system")
             except:
-                LOG.exception('Fault occurred while attempting to query libvirt for domain: ' + self.vm_ID)
+                LOG.exception('Fault occurred while attempting to connect to libvirt.')
 
             if not conn:
                 LOG.error('Failed to open connection to libvirt.')
@@ -138,7 +138,7 @@ class NEUCAPort:
             try:
                 conn = libvirt.open("qemu:///system")
             except:
-                LOG.exception('Fault occurred while attempting to query libvirt for domain: ' + self.vm_ID)
+                LOG.exception('Fault occurred while attempting to connect to libvirt.')
 
             if not conn:
                 LOG.error('Failed to open connection to libvirt.')
@@ -214,9 +214,17 @@ class NEUCABridge:
 
     @classmethod
     def getMac_libvirt(self, vif_name):
-        found = False
+        rtn_val = "not found"
 
-        conn = libvirt.open("qemu:///system")
+        conn = None
+        try:
+            conn = libvirt.open("qemu:///system")
+        except:
+            LOG.exception('Fault occurred while attempting to connect to libvirt.')
+
+        if not conn:
+            LOG.error('Failed to open connection to libvirt.')
+            return rtn_val
 
         try:
             for dom_id in conn.listDomainsID():
@@ -233,16 +241,12 @@ class NEUCABridge:
 
                     if name == vif_name:
                         rtn_val = str(mac)
-                        found = True
                         break
 
                 doc.freeDoc()
                 ctxt.xpathFreeContext()
         except:
             LOG.exception("getMac_libvirt error for vif_name = " + str(vif_name))
-
-        if not found:
-            rtn_val = "not found"
 
         if conn:
             conn.close()
@@ -392,7 +396,7 @@ class NEUCAQuantumAgent(object):
         try:
             conn = libvirt.open("qemu:///system")
         except:
-            LOG.exception('Unable to open libvirt connection.')
+            LOG.exception('Fault occurred while attempting to connect to libvirt.')
 
         if not conn:
             LOG.error('Failed to open connection to libvirt.')
@@ -540,7 +544,7 @@ class NEUCAQuantumAgent(object):
         try:
             conn = libvirt.open("qemu:///system")
         except:
-            LOG.exception('Unable to open libvirt connection.')
+            LOG.exception('Fault occurred while attempting to connect to libvirt.')
 
         if not conn:
             LOG.error('Failed to open connection to libvirt.')
