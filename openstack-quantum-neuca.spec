@@ -1,6 +1,6 @@
 Name:		openstack-quantum-neuca
 Version:	0.2
-Release:	exogeni2%{?dist}
+Release:	exogeni3%{?dist}
 Summary:	Quantum NEuca plugin
 
 Group:		Applications/System
@@ -100,6 +100,9 @@ fi
 %dir %attr(0755, quantum, quantum) %{_localstatedir}/run/neuca
 
 %changelog
+* Thu Jul 7 2016 Victor J. Orlikowski <vjo@duke.edu> - 0.2-exogeni3
+- Yet more cleanups
+
 * Thu Jul 7 2016 Victor J. Orlikowski <vjo@duke.edu> - 0.2-exogeni2
 - More cleanups
 
