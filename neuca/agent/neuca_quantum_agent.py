@@ -98,32 +98,33 @@ class NEUCAPort:
     def destroy(self):
         LOG.info("Destroying port: " + self.port_name + ", vif_iface: " + self.vif_iface  + ", vm_ID: " + str(self.vm_ID))
 
-        vm_exists = True
         conn = None
+        dom = None
         if self.vm_ID:
             try:
                 conn = libvirt.open("qemu:///system")
-                if not conn:
-                    LOG.info('Failed to open connection to the libvirt hypervisor')
-                    return
-                
-                dom = conn.lookupByName(self.vm_ID)
-                if not dom:
-                    LOG.info('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
-                    return
-
             except:
-                vm_exists = False
-                LOG.debug('libvirt failed to find ' + self.vm_ID )
+                LOG.exception('Fault occurred while attempting to query libvirt for domain: ' + self.vm_ID)
 
-            deviceXML = "<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>"
+            if not conn:
+                LOG.error('Failed to open connection to libvirt.')
+                return
 
-            LOG.info("Delete interface: " + self.vif_mac + ", "+ self.vif_iface)
             try:
-                if vm_exists:
-                    dom.detachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
+                dom = conn.lookupByName(self.vm_ID)
             except:
-                LOG.exception('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
+                LOG.exception('Fault occurred while attempting to query libvirt for domain: ' + self.vm_ID)
+
+            if dom:
+                deviceXML = "<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>"
+
+                LOG.info("Deleting interface: " + self.vif_mac + ", "+ self.vif_iface)
+                try:
+                    dom.detachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
+                except:
+                    LOG.exception('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
+            else:
+                LOG.info('Failed to find domain ' + self.vm_ID  + ' while querying libvirt.')
  
             if conn:
                 conn.close()
@@ -131,32 +132,35 @@ class NEUCAPort:
     def create(self):
         LOG.info("Creating Port: " + str(self))
 
+        conn = None
+        dom = None
         if self.vm_ID:
-            conn = None
             try:
-                #add device to vm
                 conn = libvirt.open("qemu:///system")
-                if not conn:
-                    LOG.error('Failed to open connection to the libvirt hypervisor')
-                    return
-
-                dom = conn.lookupByName(self.vm_ID)
-                if not dom:
-                    LOG.debug('Failed to find dom ' + self.vm_ID  + ' when querying the libvirt hypervisor')
-                    return
             except:
-                LOG.debug('libvirt failed to find ' + self.vm_ID )
+                LOG.exception('Fault occurred while attempting to query libvirt for domain: ' + self.vm_ID)
+
+            if not conn:
+                LOG.error('Failed to open connection to libvirt.')
                 return
 
-            deviceXML = "<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <target dev='" + self.vif_iface + "'/> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>"
-
-            LOG.info("Creating interface: " + self.vif_mac + ", "+ self.vif_iface )
             try:
-                if dom.isActive():
-                    dom.attachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
-                    self.run_cmd(["ifconfig", self.vif_iface, "up" ])
+                dom = conn.lookupByName(self.vm_ID)
             except:
-                LOG.exception('libvirt failed to add iface to ' + self.vm_ID )
+                LOG.exception('Fault occurred while attempting to query libvirt for domain: ' + self.vm_ID)
+
+            if dom:
+                deviceXML = "<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <target dev='" + self.vif_iface + "'/> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>"
+
+                LOG.info("Creating interface: " + self.vif_mac + ", "+ self.vif_iface )
+                try:
+                    if dom.isActive():
+                        dom.attachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
+                        self.run_cmd(["ifconfig", self.vif_iface, "up" ])
+                except:
+                    LOG.exception('libvirt failed to attach iface ' + self.port_name + ' to ' + self.vm_ID )
+            else:
+                LOG.debug('Failed to find domain ' + self.vm_ID  + ' while querying libvirt')
 
             if conn:
                 conn.close() 
@@ -384,12 +388,15 @@ class NEUCAQuantumAgent(object):
     @classmethod
     def __read_interface_info_from_libvirt(self):
         self.iface_to_vm_dict = {}
-        
-        conn = libvirt.open("qemu:///system")
-        
+
+        try:
+            conn = libvirt.open("qemu:///system")
+        except:
+            LOG.exception('Unable to open libvirt connection.')
+
         if not conn:
-            LOG.error('Failed to open connection to the libvirt hypervisor')
-            return 
+            LOG.error('Failed to open connection to libvirt.')
+            return
 
         try:
             for dom_id in conn.listDomainsID():
@@ -530,33 +537,40 @@ class NEUCAQuantumAgent(object):
         conn = None
         instances = []
 
-        # First, get the list of defined, but not running, instances.
         try:
-           conn = libvirt.open("qemu:///system")
-           instances = conn.listDefinedDomains()
-           if not conn:
-               LOG.error('Failed to open connection to the libvirt hypervisor')
-               return
+            conn = libvirt.open("qemu:///system")
         except:
-           LOG.debug('Unable to open libvirt connection.')
-           return
-        
-        # Now, get the list of running instances, and append.
-        ids = conn.listDomainsID()
-        for id in ids:
-           try:
-              dom = conn.lookupByID(id)
-              if dom:
-                  new_instance_name = dom.name()
-                  LOG.debug(new_instance_name)
-                  instances.append(new_instance_name)
-           except:
-              LOG.debug('libvirt failed to find vm ' + id )
+            LOG.exception('Unable to open libvirt connection.')
 
+        if not conn:
+            LOG.error('Failed to open connection to libvirt.')
+            return
+
+        try:
+            # First, get the list of defined, but not running, instances.
+            instances = conn.listDefinedDomains()
+
+            # Now, get the list of running instances, and append.
+            ids = conn.listDomainsID()
+            for id in ids:
+                try:
+                    dom = conn.lookupByID(id)
+                    if dom:
+                        new_instance_name = dom.name()
+                        LOG.debug(new_instance_name)
+                        instances.append(new_instance_name)
+                except:
+                    LOG.debug('libvirt failed to find domain: ' + id )
+        except:
+            LOG.exception('Exception occurred while querying libvirt:')
 
         #instances=['instance-00000f1c','instance-00000f1d']
    
-        LOG.debug( 'instances: ' + str(instances) )
+        LOG.debug('List of all instances: ' + str(instances))
+
+        # Done with libvirt; close up the connection.
+        if conn:
+            conn.close()
 
         rtn_bridges = {}
 
@@ -565,15 +579,15 @@ class NEUCAQuantumAgent(object):
         all_join = db.join(port_join, net_join, port_join.ports_network_id==net_join.uuid)
 
         #ports_interface_id='instance-00000f1b.fe:16:3e:00:68:eb'
-        all_ports=[]
+        all_ports = []
         for inst in instances:
             all_ports += all_join.filter_by(port_properties_vm_id=inst).all()
-        LOG.debug(str(all_ports))
+        LOG.debug('List of all ports: ' + str(all_ports))
  
         try: 
-            neuca_tenant_id=config.get("NEUCA", 'neuca_tenant_id')
+            neuca_tenant_id = config.get("NEUCA", 'neuca_tenant_id')
         except:
-            LOG.debug('Unspecified NEuca Tenant ID, check neuca quantum config file')
+            LOG.error('NEuca tenant ID unspecified; check neuca agent plugin configuration file.')
 
         for port in all_ports:
             try:
@@ -601,8 +615,6 @@ class NEUCAQuantumAgent(object):
             except:
                 LOG.debug('Error adding port ' + str(port.ports_interface_id))
 
-        if conn:
-            conn.close()
         return rtn_bridges
 
     def print_bridges(self, bridges):
