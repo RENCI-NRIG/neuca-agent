@@ -684,7 +684,7 @@ class NEUCAQuantumAgent(object):
         # delete old bridges and ports that are not in the new_bridge
         for br_old in old_bridges.keys():
             if br_old == br_int:
-                LOG.debug("Skipping " + br_old + "during old_bridges processing.")
+                LOG.debug("Skipping " + br_old + " during old_bridges processing.")
                 continue
 
             new_bridge_entry = new_bridges.get(br_old)
@@ -696,13 +696,11 @@ class NEUCAQuantumAgent(object):
                     if port_old not in new_bridge_entry.ports:
                         LOG.info("Deleting port: " + port_old)
                         old_bridges[br_old].ports[port_old].destroy()
-                    else:
-                        old_bridges[br_old].ports[port_old].update()
 
         # add new bridges and ports
         for br_new in new_bridges.keys():
             if br_new == br_int:
-                LOG.debug("Skipping " + br_new + "during new_bridges processing.")
+                LOG.debug("Skipping " + br_new + " during new_bridges processing.")
                 continue
 
             if br_new not in old_bridges:
@@ -711,11 +709,15 @@ class NEUCAQuantumAgent(object):
 
             old_bridge_entry = old_bridges.get(br_new)
             for port_new in new_bridges[br_new].ports:
-                bridge_type = "old"
                 if old_bridge_entry is None:
-                    bridge_type = "new"
-                LOG.info("Adding port to " + bridge_type + " bridge: " + port_new)
-                new_bridges[br_new].ports[port_new].create()
+                    LOG.info("Adding port to new bridge: " + port_new)
+                    new_bridges[br_new].ports[port_new].create()
+                else:
+                    if port_new in old_bridge_entry.ports:
+                        new_bridges[br_new].ports[port_new].update()
+                    else:
+                        LOG.info("Adding port to old bridge: " + port_new)
+                        new_bridges[br_new].ports[port_new].create()
 
     def daemon_loop(self):
         while True:
