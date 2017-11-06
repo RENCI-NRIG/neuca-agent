@@ -1,12 +1,12 @@
 Name:		openstack-quantum-neuca
 Version:	0.2
-Release:	exogeni3%{?dist}
+Release:	exogeni4%{?dist}
 Summary:	Quantum NEuca plugin
 
 Group:		Applications/System
 License:	EPL 1.0
 
-Source0:	neuca-%{version}.tgz
+Source0:	neuca-agent-%{version}.tgz
 
 BuildArch:	noarch
 
@@ -31,7 +31,7 @@ This package contains the quantum plugin that implements virtual
 networks via NEuca and Open vSwitch.
 
 %prep
-%setup -q -n neuca_src
+%setup -q -n neuca-agent
 
 find neuca -name \*.py -exec sed -i '/\/usr\/bin\/env python/d' {} \;
 
