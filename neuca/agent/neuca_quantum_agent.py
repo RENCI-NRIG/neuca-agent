@@ -115,9 +115,29 @@ class NEUCAPort:
             except:
                 LOG.exception('Fault occurred while attempting to query libvirt for domain: ' + self.vm_ID)
 
-            if dom:
-                deviceXML = "<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> </virtualport> <model type='virtio' /> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>"
+            try:
+                dataplane_interface_type = config.get("NEUCA", "default-dataplane-interface-type")
+            except ConfigParser.NoOptionError:
+                dataplane_interface_type = "virtio"
 
+            deviceXML = None
+            if (
+                    (dataplane_interface_type == "virtio") or
+                    (dataplane_interface_type == "e1000")
+            ):
+                deviceXML = (("<interface type='bridge'> <source bridge='%s'/> " +
+                              "<mac address='%s'/> <virtualport type='openvswitch'> " +
+                              "</virtualport> <model type='%s' /> " +
+                              "<driver name='vhost' txmode='iothread' ioeventfd='on'/> " +
+                              "</interface>")
+                             % (self.bridge.getName(),
+                                self.vif_mac,
+                                dataplane_interface_type))
+
+            if not deviceXML:
+                LOG.error('default-dataplane-interface-type is set to invalid value in configuration file.')
+
+            if dom and deviceXML:
                 LOG.info("Deleting interface: " + self.vif_mac + ", "+ self.vif_iface)
                 try:
                     dom.detachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
@@ -125,7 +145,7 @@ class NEUCAPort:
                     LOG.exception('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
             else:
                 LOG.info('Failed to find domain ' + self.vm_ID  + ' while querying libvirt.')
- 
+
             if conn:
                 conn.close()
 
@@ -149,9 +169,29 @@ class NEUCAPort:
             except:
                 LOG.exception('Fault occurred while attempting to query libvirt for domain: ' + self.vm_ID)
 
-            if dom:
-                deviceXML = "<interface type='bridge'> <source bridge='" + self.bridge.getName() + "'/> <mac address='" + self.vif_mac + "'/> <virtualport type='openvswitch'> <parameters interfaceid='" + self.ID + "'/> </virtualport> <model type='virtio' /> <target dev='" + self.vif_iface + "'/> <driver name='vhost' txmode='iothread' ioeventfd='on'/> </interface>"
+            try:
+                dataplane_interface_type = config.get("NEUCA", "default-dataplane-interface-type")
+            except ConfigParser.NoOptionError:
+                dataplane_interface_type = "virtio"
 
+            deviceXML = None
+            if (
+                    (dataplane_interface_type == "virtio") or
+                    (dataplane_interface_type == "e1000")
+            ):
+                deviceXML = (("<interface type='bridge'> <source bridge='%s'/> " +
+                              "<mac address='%s'/> <virtualport type='openvswitch'> " +
+                              "</virtualport> <model type='%s' /> " +
+                              "<driver name='vhost' txmode='iothread' ioeventfd='on'/> " +
+                              "</interface>")
+                             % (self.bridge.getName(),
+                                self.vif_mac,
+                                dataplane_interface_type))
+
+            if not deviceXML:
+                LOG.error('default-dataplane-interface-type is set to invalid value in configuration file.')
+
+            if dom and deviceXML:
                 LOG.info("Creating interface: " + self.vif_mac + ", "+ self.vif_iface )
                 try:
                     if dom.isActive():
@@ -324,6 +364,9 @@ class NEUCABridge:
 
 class NEUCAQuantumAgent(object):
     def __init__(self, config_file):
+        # FIXME: Ugh. Use of "global" considered a code smell.
+        # Re-factor based on default options are done in neuca-guest-agent.
+        # 'Cause allow of the below hurts me to read. ;)
         global config
         self.config_file = config_file
 
