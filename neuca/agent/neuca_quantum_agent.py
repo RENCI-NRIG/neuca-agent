@@ -125,9 +125,11 @@ class NEUCAPort:
                     (dataplane_interface_type == "virtio") or
                     (dataplane_interface_type == "e1000")
             ):
-                deviceXML = (("<interface type='bridge'> <source bridge='%s'/> " +
-                              "<mac address='%s'/> <virtualport type='openvswitch'> " +
-                              "</virtualport> <model type='%s' /> " +
+                deviceXML = (("<interface type='bridge'> " +
+                              "<source bridge='%s'/> <mac address='%s'/> " +
+                              "<virtualport type='openvswitch'> " +
+                              "</virtualport> " +
+                              "<model type='%s'/> " +
                               "<driver name='vhost' txmode='iothread' ioeventfd='on'/> " +
                               "</interface>")
                              % (self.bridge.getName(),
@@ -136,15 +138,14 @@ class NEUCAPort:
 
             if not deviceXML:
                 LOG.error('default-dataplane-interface-type is set to invalid value in configuration file.')
-
-            if dom and deviceXML:
+            elif not dom:
+                LOG.info('Failed to find domain ' + self.vm_ID  + ' while querying libvirt.')
+            else:
                 LOG.info("Deleting interface: " + self.vif_mac + ", "+ self.vif_iface)
                 try:
                     dom.detachDeviceFlags(deviceXML, libvirt.VIR_DOMAIN_AFFECT_CURRENT)
                 except:
                     LOG.exception('libvirt failed to detach iface ' + self.port_name + ' from ' + self.vm_ID )
-            else:
-                LOG.info('Failed to find domain ' + self.vm_ID  + ' while querying libvirt.')
 
             if conn:
                 conn.close()
@@ -179,19 +180,26 @@ class NEUCAPort:
                     (dataplane_interface_type == "virtio") or
                     (dataplane_interface_type == "e1000")
             ):
-                deviceXML = (("<interface type='bridge'> <source bridge='%s'/> " +
-                              "<mac address='%s'/> <virtualport type='openvswitch'> " +
-                              "</virtualport> <model type='%s' /> " +
+                deviceXML = (("<interface type='bridge'> " +
+                              "<source bridge='%s'/> <mac address='%s'/> " +
+                              "<virtualport type='openvswitch'> " +
+                              "<parameters interfaceid='%s'/> " +
+                              "</virtualport> " +
+                              "<model type='%s'/> " +
+                              "<target dev='%s'/>" +
                               "<driver name='vhost' txmode='iothread' ioeventfd='on'/> " +
                               "</interface>")
                              % (self.bridge.getName(),
                                 self.vif_mac,
-                                dataplane_interface_type))
+                                self.ID,
+                                dataplane_interface_type,
+                                self.vif_iface))
 
             if not deviceXML:
                 LOG.error('default-dataplane-interface-type is set to invalid value in configuration file.')
-
-            if dom and deviceXML:
+            elif not dom:
+                LOG.debug('Failed to find domain ' + self.vm_ID  + ' while querying libvirt')
+            else:
                 LOG.info("Creating interface: " + self.vif_mac + ", "+ self.vif_iface )
                 try:
                     if dom.isActive():
@@ -199,11 +207,9 @@ class NEUCAPort:
                         self.run_cmd(["ifconfig", self.vif_iface, "up" ])
                 except:
                     LOG.exception('libvirt failed to attach iface ' + self.port_name + ' to ' + self.vm_ID )
-            else:
-                LOG.debug('Failed to find domain ' + self.vm_ID  + ' while querying libvirt')
 
             if conn:
-                conn.close() 
+                conn.close()
             self.update()
 
     def update(self):
@@ -508,7 +514,7 @@ class NEUCAQuantumAgent(object):
                 curr_port_ID = '' #TODO: should be DB lookup that might fail if port was deleted
 
                 try:
-                    curr_port_vm_ID = self.iface_to_vm_dict[curr_port_iface] 
+                    curr_port_vm_ID = self.iface_to_vm_dict[curr_port_iface]
                 except:
                     curr_port_vm_ID = None
                 #curr_port_vm_internal_iface = None 
@@ -675,42 +681,41 @@ class NEUCAQuantumAgent(object):
     def update_bridges(self, old_bridges, new_bridges):
         br_int = config.get("NEUCA", 'integration-bridge')
 
-        #delete old bridges and ports that are not in the new_bridge
+        # delete old bridges and ports that are not in the new_bridge
         for br_old in old_bridges.keys():
             if br_old == br_int:
-                LOG.debug("Skipping: " + br_old)
+                LOG.debug("Skipping " + br_old + "during old_bridges processing.")
                 continue
 
-            if not br_old in new_bridges:
+            new_bridge_entry = new_bridges.get(br_old)
+            if new_bridge_entry is None:
                 LOG.info("Deleting old bridge: " + br_old)
                 old_bridges[br_old].destroy()
             else:
                 for port_old in old_bridges[br_old].ports:
-                    new_bridge_entry = new_bridges.get(br_old)
-                    if not new_bridge_entry:
-                        continue
-                    if not port_old in new_bridge_entry.ports:
+                    if port_old not in new_bridge_entry.ports:
                         LOG.info("Deleting port: " + port_old)
                         old_bridges[br_old].ports[port_old].destroy()
                     else:
                         old_bridges[br_old].ports[port_old].update()
 
-        #add new bridges and ports
+        # add new bridges and ports
         for br_new in new_bridges.keys():
             if br_new == br_int:
+                LOG.debug("Skipping " + br_new + "during new_bridges processing.")
                 continue
 
-            if not br_new in old_bridges:
+            if br_new not in old_bridges:
                 LOG.info("Adding new bridge: " + br_new)
                 new_bridges[br_new].create()
 
+            old_bridge_entry = old_bridges.get(br_new)
             for port_new in new_bridges[br_new].ports:
-                old_bridge_entry = old_bridges.get(br_new)
-                if not old_bridge_entry:
-                    continue
-                if not port_new in old_bridge_entry.ports:
-                    LOG.info("Adding port to old bridge: " + port_new)
-                    new_bridges[br_new].ports[port_new].create()
+                bridge_type = "old"
+                if old_bridge_entry is None:
+                    bridge_type = "new"
+                LOG.info("Adding port to " + bridge_type + " bridge: " + port_new)
+                new_bridges[br_new].ports[port_new].create()
 
     def daemon_loop(self):
         while True:
